@@ -1,15 +1,23 @@
+#!/usr/bin/env python2.7
+
 import subprocess
 import z3
-#import ivy.ivy_lexer
+# import ivy.ivy_lexer
 
 import sys, os.path
+
+if len(sys.argv) < 2:
+    print "USAGE: python2.7 deps.py <IVY_FILENAME> [N_MULTIPROCESSING]"
+    sys.exit(1)
+
 INPUT = sys.argv[1]
 BASE_NAME = os.path.basename(INPUT)
+N_MULTIPROCESSING = int(sys.argv[2]) if len(sys.argv) > 2 else 1  # size of multiprocessing pool
 
 print 'Processing...', INPUT
 
 with open(INPUT) as f:
-    source = f.read().split('\n')
+    source = f.read().splitlines()
 
 conjecture_line_numbers = []
 safety_line_numbers = []
@@ -17,22 +25,23 @@ all_lines = []
 
 lines = enumerate(source)
 
+CONJECTURE_WORDS = 'conjecture invariant'.split()
+BAD_WORDS = CONJECTURE_WORDS + 'init individual object relation action'.split()#ivy.ivy_lexer.reserved.keys()
+
 in_a_conjecture = False
 try:
     while True:
         i, line = lines.next()
-        line = line.lstrip()
+        lline = line.lstrip()
         if in_a_conjecture:
-            BAD_WORDS = 'conjecture init individual object relation action'.split(' ')#ivy.ivy_lexer.reserved.keys()
-            if any([line.startswith(word) for word in BAD_WORDS]) or '}' in line:
-#           if line.startswith('conjecture') or line.startswith('init') or ('}' in line):
+            if any(lline.startswith(word) for word in BAD_WORDS) or ('}' in lline):
                 in_a_conjecture = False
             else:
                 all_lines[conjecture_line_numbers[-1]] += ' ' + line.split('#')[0]
                 all_lines.append('#')
         if not in_a_conjecture:
             all_lines.append(line)
-            if line.startswith('conjecture'):
+            if any(lline.startswith(word) for word in CONJECTURE_WORDS):
                 in_a_conjecture = True
                 conjecture_line_numbers.append(i)
                 if '[safety]' in line:
@@ -40,18 +49,14 @@ try:
 except StopIteration:
     pass
 
-
-
-
-
-
-
-
-
 print 'The (zero-indexed) conjecture line numbers are:', conjecture_line_numbers
 
 def query(Pk, conjectures, axioms):
-    print 'Query:', Pk, conjectures, axioms
+    print 'Query: Pk={}, conjectures={}, axioms={}'.format(
+        Pk,
+        sorted(conjectures),
+        sorted(axioms),
+    )
     filename = 'test-' + str(Pk) + '-' + BASE_NAME
     with open(filename, 'w') as f:
         for i, line in enumerate(all_lines):
@@ -66,16 +71,30 @@ def query(Pk, conjectures, axioms):
             else: #elif i not in axioms and i not in conjectures:
                 f.write('#' + line + '\n')
     try:
-        out = subprocess.check_output(['ivy_check', filename])
-        os.system('rm ' + filename);
+        # return True # dry-run
+        cmd = ['ivy_check', filename]
+        if N_MULTIPROCESSING <= 1:  # with N_MULTIPROCESSING > 1, outputs get mixed
+            print ' '.join(cmd), '...',
+            sys.stdout.flush()
+        subprocess.check_output(
+            cmd,
+            stderr=subprocess.STDOUT,
+            universal_newlines=True,
+        )
+        if N_MULTIPROCESSING <= 1:  # with N_MULTIPROCESSING > 1, outputs get mixed
+            print 'OK'
+        os.remove(filename)
         return True
     except subprocess.CalledProcessError as e:
-        os.system('rm ' + filename);
-        err_lines = e.output.split('\n')
+        if N_MULTIPROCESSING <= 1:  # with N_MULTIPROCESSING > 1, outputs get mixed
+            print 'NOT OK'
+        os.remove(filename)
+        err_lines = e.output.splitlines()
         err_lines = [l for l in err_lines if 'FAIL' in l]
         err_lines = [int(l.split(' line ')[1].split(':')[0]) - 1 for l in err_lines]
         if err_lines == []:
             print repr(e.output), ':('
+            assert False
         if Pk in err_lines:
             return False
         return True
@@ -136,16 +155,13 @@ def marco(Pk):
     return out
 
 import multiprocessing
-p = multiprocessing.Pool(16)
-mu = p.map(marco, conjecture_line_numbers)
+pool = multiprocessing.Pool(N_MULTIPROCESSING)
+mu = pool.map_async(marco, conjecture_line_numbers).get(9999999) # see: https://stackoverflow.com/a/1408476
 
 entries = zip(conjecture_line_numbers, mu)
 
 def fancy_line_number(n):
     return '[' + str(n + 1) + '] ' + all_lines[n].replace('conjecture ', '')[:10] + '...';
-
-
-
 
 
 graph = ''
@@ -161,8 +177,6 @@ for source, targets in entries:
     if len(targets) > 1 and len(targets[1]) > 0:
         graph += '  %s -> %s[style=dotted];' % (source, ', '.join(map(str, targets[1]))) + '\n'
 graph += '}' + '\n'
-
-
 
 
 repr_filename = BASE_NAME.replace('.ivy', '.out')
