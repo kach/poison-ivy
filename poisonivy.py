@@ -2,9 +2,13 @@
 
 import subprocess
 import z3
+import sys
+import os
+import multiprocessing
+
 # import ivy.ivy_lexer
 
-import sys, os.path
+print 'Hello from PID={}'.format(os.getpid())
 
 if len(sys.argv) < 2:
     print "USAGE: python2.7 deps.py <IVY_FILENAME> [N_MULTIPROCESSING]"
@@ -52,7 +56,8 @@ except StopIteration:
 print 'The (zero-indexed) conjecture line numbers are:', conjecture_line_numbers
 
 def query(Pk, conjectures, axioms):
-    print 'Query: Pk={}, conjectures={}, axioms={}'.format(
+    print 'Query: PID={}, Pk={}, conjectures={}, axioms={}'.format(
+        os.getpid(),
         Pk,
         sorted(conjectures),
         sorted(axioms),
@@ -154,15 +159,13 @@ def marco(Pk):
     print 'Fully analyzed...', Pk
     return out
 
-import multiprocessing
 pool = multiprocessing.Pool(N_MULTIPROCESSING)
 mu = pool.map_async(marco, conjecture_line_numbers).get(9999999) # see: https://stackoverflow.com/a/1408476
 
 entries = zip(conjecture_line_numbers, mu)
 
 def fancy_line_number(n):
-    return '[' + str(n + 1) + '] ' + all_lines[n].replace('conjecture ', '')[:10] + '...';
-
+    return '[' + str(n + 1) + '] ' + all_lines[n].replace('conjecture ', '')[:10] + '...'
 
 graph = ''
 
