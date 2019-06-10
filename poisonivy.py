@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.7
+#!/usr/bin/env python2.7 -u
 
 import subprocess
 import z3
@@ -54,6 +54,7 @@ except StopIteration:
     pass
 
 print 'The (zero-indexed) conjecture line numbers are:', conjecture_line_numbers
+sys.stdout.flush()
 
 def query(Pk, conjectures, axioms):
     print 'Query: PID={}, Pk={}, conjectures={}, axioms={}'.format(
@@ -62,6 +63,7 @@ def query(Pk, conjectures, axioms):
         sorted(conjectures),
         sorted(axioms),
     )
+    sys.stdout.flush()
     filename = 'test-' + str(Pk) + '-' + BASE_NAME
     with open(filename, 'w') as f:
         for i, line in enumerate(all_lines):
@@ -88,17 +90,20 @@ def query(Pk, conjectures, axioms):
         )
         if N_MULTIPROCESSING <= 1:  # with N_MULTIPROCESSING > 1, outputs get mixed
             print 'OK'
+            sys.stdout.flush()
         os.remove(filename)
         return True
     except subprocess.CalledProcessError as e:
         if N_MULTIPROCESSING <= 1:  # with N_MULTIPROCESSING > 1, outputs get mixed
             print 'NOT OK'
+            sys.stdout.flush()
         os.remove(filename)
         err_lines = e.output.splitlines()
         err_lines = [l for l in err_lines if 'FAIL' in l]
         err_lines = [int(l.split(' line ')[1].split(':')[0]) - 1 for l in err_lines]
         if err_lines == []:
             print repr(e.output), ':('
+            sys.stdout.flush()
             assert False
         if Pk in err_lines:
             return False
@@ -129,6 +134,7 @@ def grow(Pk, seed):
 
 def marco(Pk):
     print 'Starting to think about...', Pk
+    sys.stdout.flush()
     solver = z3.Solver()
     P = []
     for line_number in conjecture_line_numbers:
@@ -157,6 +163,7 @@ def marco(Pk):
             #print out
             break
     print 'Fully analyzed...', Pk
+    sys.stdout.flush()
     return out
 
 pool = multiprocessing.Pool(N_MULTIPROCESSING)
@@ -184,10 +191,11 @@ graph += '}' + '\n'
 
 repr_filename = BASE_NAME.replace('.ivy', '.out')
 print 'Writing graph repr to %s...' % (repr_filename)
+sys.stdout.flush()
 with open(repr_filename, 'w') as f:
     f.write(repr(entries))
-
 graph_filename = BASE_NAME.replace('.ivy', '.dot')
 print 'Writing graph viz to %s...' % (graph_filename)
+sys.stdout.flush()
 with open(graph_filename, 'w') as f:
     f.write(graph)
