@@ -11,7 +11,7 @@ import multiprocessing
 print 'Hello from PID={}'.format(os.getpid())
 
 if len(sys.argv) < 2:
-    print "USAGE: python2.7 deps.py <IVY_FILENAME> [N_MULTIPROCESSING]"
+    print "USAGE:\n    python2.7 {} <IVY_FILENAME> [N_MULTIPROCESSING]".format(sys.argv[0])
     sys.exit(1)
 
 INPUT = sys.argv[1]
@@ -79,15 +79,16 @@ def query(Pk, conjectures, axioms):
                 f.write('#' + line + '\n')
     try:
         # return True # dry-run
-        cmd = ['ivy_check', filename]
+        cmd = ['ivy_check', 'assert={}:{}'.format(filename[:-4], Pk + 1) ,filename]
         if N_MULTIPROCESSING <= 1:  # with N_MULTIPROCESSING > 1, outputs get mixed
             print ' '.join(cmd), '...',
             sys.stdout.flush()
-        subprocess.check_output(
+        out = subprocess.check_output(
             cmd,
             stderr=subprocess.STDOUT,
             universal_newlines=True,
         )
+        # open(filename + '.out', 'w').write(out)
         if N_MULTIPROCESSING <= 1:  # with N_MULTIPROCESSING > 1, outputs get mixed
             print 'OK'
             sys.stdout.flush()
