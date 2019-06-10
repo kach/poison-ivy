@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.7 -u
+#!/usr/bin/python2.7 -u
 
 import subprocess
 import z3
