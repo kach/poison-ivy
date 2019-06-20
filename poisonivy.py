@@ -57,12 +57,13 @@ print 'The (zero-indexed) conjecture line numbers are:', conjecture_line_numbers
 sys.stdout.flush()
 
 def query(Pk, conjectures, axioms):
-    print 'Query: PID={}, Pk={}, conjectures={}, axioms={}'.format(
+    msg = 'Query: PID={}, Pk={}, conjectures={}, axioms={}'.format(
         os.getpid(),
         Pk,
         sorted(conjectures),
         sorted(axioms),
     )
+    print msg
     sys.stdout.flush()
     filename = 'test-' + str(Pk) + '-' + BASE_NAME
     with open(filename, 'w') as f:
@@ -105,7 +106,7 @@ def query(Pk, conjectures, axioms):
         if err_lines == []:
             print repr(e.output), ':('
             sys.stdout.flush()
-            assert False
+            assert False, 'error 1: ' + msg
         if Pk in err_lines:
             return False
         return True
